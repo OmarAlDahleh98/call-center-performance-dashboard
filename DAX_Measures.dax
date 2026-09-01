@@ -1,0 +1,998 @@
+// Call Center Performance Dashboard
+// DAX Measures extracted from the Power BI model.
+// Organized for portfolio documentation; expressions are preserved from the model output.
+
+// ============================================================================
+// Core KPIs
+// ============================================================================
+
+Offered =
+SUM(Call_Center_Data[calls_offered])
+
+Handled =
+SUM(Call_Center_Data[calls_handled])
+
+Abandoned =
+SUM(Call_Center_Data[calls_abandon])
+
+Service Level % =
+DIVIDE(
+    SUM(Call_Center_Data[calls_handled_within_threshold]),
+    SUM(Call_Center_Data[calls_offered])
+)
+
+Answer Rate % =
+DIVIDE(
+    SUM(Call_Center_Data[calls_handled]),
+    SUM(Call_Center_Data[calls_offered])
+)
+
+Avg ASA =
+AVERAGE(Call_Center_Data[asa])
+
+// ============================================================================
+// Month-over-Month Analysis
+// ============================================================================
+
+Offered Previous Month =
+CALCULATE(
+    [Offered],
+    DATEADD(
+        DateTable[Date],
+        -1,
+        MONTH
+    )
+)
+
+Offered MoM % =
+DIVIDE(
+    [Offered] - [Offered Previous Month],
+    [Offered Previous Month]
+)
+
+Handled Previous Month =
+CALCULATE(
+    [Handled],
+    DATEADD(
+        DateTable[Date],
+        -1,
+        MONTH
+    )
+)
+
+Handled MoM % =
+DIVIDE(
+    [Handled] - [Handled Previous Month],
+    [Handled Previous Month]
+)
+
+Service Level Previous Month =
+CALCULATE(
+    [Service Level %],
+    DATEADD(
+        DateTable[Date],
+        -1,
+        MONTH
+    )
+)
+
+Service Level MoM % =
+[Service Level %] - [Service Level Previous Month]
+
+Abandoned Previous Month =
+CALCULATE(
+    [Abandoned],
+    DATEADD(
+        DateTable[Date],
+        -1,
+        MONTH
+    )
+)
+
+Abandoned MoM % =
+DIVIDE(
+    [Abandoned] - [Abandoned Previous Month],
+    [Abandoned Previous Month]
+)
+
+Answer Rate Previous Month =
+CALCULATE(
+    [Answer Rate %],
+    DATEADD(
+        DateTable[Date],
+        -1,
+        MONTH
+    )
+)
+
+Answer Rate MoM =
+[Answer Rate %] - [Answer Rate Previous Month]
+
+Avg ASA Previous Month =
+CALCULATE(
+    [Avg ASA],
+    DATEADD(
+        DateTable[Date],
+        -1,
+        MONTH
+    )
+)
+
+Avg ASA MoM % =
+DIVIDE(
+    [Avg ASA] - [Avg ASA Previous Month],
+    [Avg ASA Previous Month]
+)
+
+// ============================================================================
+// Forecast Analysis
+// ============================================================================
+
+Forecasted Calls =
+SUMX(
+    VALUES(DateTable[Date]),
+    CALCULATE(
+        MAX(Call_Center_Data[forecasted_calls])
+    )
+)
+
+Forecasted Calls Correct =
+SUM(Call_Center_Data[forecasted_calls])
+
+Forecast Variance =
+[Offered] - [Forecasted Calls Correct]
+
+Forecast Variance % =
+DIVIDE(
+    [Forecast Variance],
+    [Forecasted Calls Correct]
+)
+
+Deneb Offered =
+[Offered]
+
+Deneb Forecast =
+[Forecasted Calls Correct]
+
+// ============================================================================
+// Agent Analysis
+// ============================================================================
+
+Agent Rank =
+RANKX(
+    ALLSELECTED(Call_Center_Data[agent_name]),
+    [Handled],
+    ,
+    DESC,
+    DENSE
+)
+
+Selected Agent Test =
+SELECTEDVALUE(
+    Call_Center_Data[agent_name],
+    "ALL / MULTIPLE"
+)
+
+// ============================================================================
+// Display Measures
+// ============================================================================
+
+Avg ASA Display =
+FORMAT([Avg ASA], "0") & "s"
+
+Answer Time Display =
+VAR _AnswerTime =
+    AVERAGE(Call_Center_Data[answer_time])
+RETURN
+    FORMAT(_AnswerTime, "0") & "s"
+
+// ============================================================================
+// HTML Card Measures
+// ============================================================================
+
+Offered HTML Card =
+VAR CurrentValue =
+    [Offered]
+
+VAR PreviousMonthValue =
+    CALCULATE(
+        [Offered],
+        DATEADD(
+            DateTable[Date],
+            -1,
+            MONTH
+        )
+    )
+
+VAR MoMChange =
+    DIVIDE(
+        CurrentValue - PreviousMonthValue,
+        PreviousMonthValue
+    )
+
+VAR IsSingleMonth =
+    HASONEVALUE(DateTable[Year Month])
+
+VAR HasPreviousMonth =
+    NOT ISBLANK(PreviousMonthValue)
+
+VAR DisplayValue =
+    SWITCH(
+        TRUE(),
+        ISBLANK(CurrentValue), "—",
+        ABS(CurrentValue) >= 1000,
+            FORMAT(CurrentValue / 1000, "#,##0") & "K",
+        FORMAT(CurrentValue, "#,##0")
+    )
+
+VAR TrendIcon =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "—",
+        MoMChange > 0, "↑",
+        MoMChange < 0, "↓",
+        "→"
+    )
+
+VAR TrendColor =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "#6D28D9",
+        NOT HasPreviousMonth, "#9CA3AF",
+        MoMChange > 0, "#6D28D9",
+        MoMChange < 0, "#DC2626",
+        "#9CA3AF"
+    )
+
+VAR TrendText =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "No prior month",
+        FORMAT(ABS(MoMChange), "0.0%") & " vs previous month"
+    )
+
+RETURN
+"
+<div style='
+    width:100%;
+    height:100%;
+    box-sizing:border-box;
+    padding:16px 18px;
+    background:#FFFFFF;
+    border:1px solid #E7E1F0;
+    border-radius:12px;
+    font-family:Segoe UI, Arial, sans-serif;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    overflow:hidden;
+    transition:all 0.2s ease;
+'
+onmouseover='
+    this.style.boxShadow=""0 4px 14px rgba(109,40,217,0.14)"";
+    this.style.borderColor=""#D8CCF5"";
+'
+onmouseout='
+    this.style.boxShadow=""none"";
+    this.style.borderColor=""#E7E1F0"";
+'
+>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        letter-spacing:0.8px;
+        color:#111111;
+        margin-bottom:7px;
+        text-transform:uppercase;
+    '>
+        OFFERED
+    </div>
+
+    <div style='
+        font-size:40px;
+        font-weight:700;
+        line-height:1;
+        color:#111111;
+        margin-bottom:9px;
+    '>
+        " & DisplayValue & "
+    </div>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        color:" & TrendColor & ";
+        display:flex;
+        align-items:center;
+        gap:5px;
+        white-space:nowrap;
+    '>
+
+        <span style='
+            font-size:24px;
+            font-weight:700;
+            line-height:1;
+        '>
+            " & TrendIcon & "
+        </span>
+
+        <span>
+            " & TrendText & "
+        </span>
+
+    </div>
+
+</div>
+"
+
+Handled HTML Card =
+VAR CurrentValue =
+    [Handled]
+
+VAR PreviousValue =
+    [Handled Previous Month]
+
+VAR MoM =
+    [Handled MoM %]
+
+VAR IsSingleMonth =
+    HASONEVALUE(DateTable[Year Month])
+
+VAR HasPreviousMonth =
+    NOT ISBLANK(PreviousValue)
+
+VAR DisplayValue =
+    SWITCH(
+        TRUE(),
+        ISBLANK(CurrentValue), "—",
+        ABS(CurrentValue) >= 1000,
+            FORMAT(CurrentValue / 1000, "#,##0") & "K",
+        FORMAT(CurrentValue, "#,##0")
+    )
+
+VAR TrendIcon =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "—",
+        MoM > 0, "↑",
+        MoM < 0, "↓",
+        "→"
+    )
+
+VAR TrendColor =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "#6D28D9",
+        NOT HasPreviousMonth, "#9CA3AF",
+        MoM > 0, "#6D28D9",
+        MoM < 0, "#DC2626",
+        "#9CA3AF"
+    )
+
+VAR TrendText =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "No prior month",
+        FORMAT(ABS(MoM), "0.0%") & " vs previous month"
+    )
+
+RETURN
+"
+<div style='
+    width:100%;
+    height:100%;
+    box-sizing:border-box;
+    padding:16px 18px;
+    background:#FFFFFF;
+    border:1px solid #E7E1F0;
+    border-radius:12px;
+    font-family:Segoe UI, Arial, sans-serif;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    overflow:hidden;
+    transition:all 0.2s ease;
+'
+onmouseover='
+    this.style.boxShadow=""0 4px 14px rgba(109,40,217,0.14)"";
+    this.style.borderColor=""#D8CCF5"";
+'
+onmouseout='
+    this.style.boxShadow=""none"";
+    this.style.borderColor=""#E7E1F0"";
+'
+>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        letter-spacing:0.8px;
+        color:#111111;
+        margin-bottom:7px;
+        text-transform:uppercase;
+    '>
+        HANDLED
+    </div>
+
+    <div style='
+        font-size:40px;
+        font-weight:700;
+        line-height:1;
+        color:#111111;
+        margin-bottom:9px;
+    '>
+        " & DisplayValue & "
+    </div>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        color:" & TrendColor & ";
+        display:flex;
+        align-items:center;
+        gap:5px;
+        white-space:nowrap;
+    '>
+
+        <span style='
+            font-size:24px;
+            font-weight:700;
+            line-height:1;
+        '>
+            " & TrendIcon & "
+        </span>
+
+        <span>
+            " & TrendText & "
+        </span>
+
+    </div>
+
+</div>
+"
+
+Service Level HTML Card =
+VAR CurrentValue =
+    [Service Level %]
+
+VAR PreviousValue =
+    [Service Level Previous Month]
+
+VAR MoM =
+    [Service Level MoM %]
+
+VAR IsSingleMonth =
+    HASONEVALUE(DateTable[Year Month])
+
+VAR HasPreviousMonth =
+    NOT ISBLANK(PreviousValue)
+
+VAR DisplayValue =
+    IF(
+        ISBLANK(CurrentValue),
+        "—",
+        FORMAT(CurrentValue, "0.0%")
+    )
+
+VAR TrendIcon =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "—",
+        MoM > 0, "↑",
+        MoM < 0, "↓",
+        "→"
+    )
+
+VAR TrendColor =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "#6D28D9",
+        NOT HasPreviousMonth, "#9CA3AF",
+        MoM > 0, "#6D28D9",
+        MoM < 0, "#DC2626",
+        "#9CA3AF"
+    )
+
+VAR TrendText =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "No prior month",
+        FORMAT(ABS(MoM) * 100, "0.0") & " pp vs previous month"
+    )
+
+RETURN
+"
+<div style='
+    width:100%;
+    height:100%;
+    box-sizing:border-box;
+    padding:16px 18px;
+    background:#FFFFFF;
+    border:1px solid #E7E1F0;
+    border-radius:12px;
+    font-family:Segoe UI, Arial, sans-serif;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    overflow:hidden;
+    transition:all 0.2s ease;
+'
+onmouseover='
+    this.style.boxShadow=""0 4px 14px rgba(109,40,217,0.14)"";
+    this.style.borderColor=""#D8CCF5"";
+'
+onmouseout='
+    this.style.boxShadow=""none"";
+    this.style.borderColor=""#E7E1F0"";
+'
+>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        letter-spacing:0.8px;
+        color:#111111;
+        margin-bottom:7px;
+        text-transform:uppercase;
+    '>
+        SERVICE LEVEL
+    </div>
+
+    <div style='
+        font-size:40px;
+        font-weight:700;
+        line-height:1;
+        color:#111111;
+        margin-bottom:9px;
+    '>
+        " & DisplayValue & "
+    </div>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        color:" & TrendColor & ";
+        display:flex;
+        align-items:center;
+        gap:5px;
+        white-space:nowrap;
+    '>
+
+        <span style='
+            font-size:24px;
+            font-weight:700;
+            line-height:1;
+        '>
+            " & TrendIcon & "
+        </span>
+
+        <span>
+            " & TrendText & "
+        </span>
+
+    </div>
+
+</div>
+"
+
+Abandoned HTML Card =
+VAR CurrentValue =
+    [Abandoned]
+
+VAR PreviousValue =
+    [Abandoned Previous Month]
+
+VAR MoM =
+    [Abandoned MoM %]
+
+VAR IsSingleMonth =
+    HASONEVALUE(DateTable[Year Month])
+
+VAR HasPreviousMonth =
+    NOT ISBLANK(PreviousValue)
+
+VAR DisplayValue =
+    SWITCH(
+        TRUE(),
+        ISBLANK(CurrentValue), "—",
+        ABS(CurrentValue) >= 1000,
+            FORMAT(CurrentValue / 1000, "#,##0") & "K",
+        FORMAT(CurrentValue, "#,##0")
+    )
+
+VAR TrendIcon =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "—",
+        MoM > 0, "↑",
+        MoM < 0, "↓",
+        "→"
+    )
+
+VAR TrendColor =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "#6D28D9",
+        NOT HasPreviousMonth, "#9CA3AF",
+
+        /* Increase in abandoned calls = negative */
+        MoM > 0, "#DC2626",
+
+        /* Decrease in abandoned calls = positive */
+        MoM < 0, "#6D28D9",
+
+        "#9CA3AF"
+    )
+
+VAR TrendText =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "No prior month",
+        FORMAT(ABS(MoM), "0.0%") & " vs previous month"
+    )
+
+RETURN
+"
+<div style='
+    width:100%;
+    height:100%;
+    box-sizing:border-box;
+    padding:16px 18px;
+    background:#FFFFFF;
+    border:1px solid #E7E1F0;
+    border-radius:12px;
+    font-family:Segoe UI, Arial, sans-serif;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    overflow:hidden;
+    transition:all 0.2s ease;
+'
+onmouseover='
+    this.style.boxShadow=""0 4px 14px rgba(109,40,217,0.14)"";
+    this.style.borderColor=""#D8CCF5"";
+'
+onmouseout='
+    this.style.boxShadow=""none"";
+    this.style.borderColor=""#E7E1F0"";
+'
+>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        letter-spacing:0.8px;
+        color:#111111;
+        margin-bottom:7px;
+        text-transform:uppercase;
+    '>
+        ABANDONED
+    </div>
+
+    <div style='
+        font-size:40px;
+        font-weight:700;
+        line-height:1;
+        color:#111111;
+        margin-bottom:9px;
+    '>
+        " & DisplayValue & "
+    </div>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        color:" & TrendColor & ";
+        display:flex;
+        align-items:center;
+        gap:5px;
+        white-space:nowrap;
+    '>
+
+        <span style='
+            font-size:24px;
+            font-weight:700;
+            line-height:1;
+        '>
+            " & TrendIcon & "
+        </span>
+
+        <span>
+            " & TrendText & "
+        </span>
+
+    </div>
+
+</div>
+"
+
+Answer Rate HTML Card =
+VAR CurrentValue =
+    [Answer Rate %]
+
+VAR PreviousValue =
+    [Answer Rate Previous Month]
+
+VAR MoM =
+    [Answer Rate MoM]
+
+VAR IsSingleMonth =
+    HASONEVALUE(DateTable[Year Month])
+
+VAR HasPreviousMonth =
+    NOT ISBLANK(PreviousValue)
+
+VAR DisplayValue =
+    IF(
+        ISBLANK(CurrentValue),
+        "—",
+        FORMAT(CurrentValue, "0.0%")
+    )
+
+VAR TrendIcon =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "—",
+        MoM > 0, "↑",
+        MoM < 0, "↓",
+        "→"
+    )
+
+VAR TrendColor =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "#6D28D9",
+        NOT HasPreviousMonth, "#9CA3AF",
+        MoM > 0, "#6D28D9",
+        MoM < 0, "#DC2626",
+        "#9CA3AF"
+    )
+
+VAR TrendText =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "No prior month",
+        FORMAT(ABS(MoM) * 100, "0.0")
+            & " pp vs previous month"
+    )
+
+RETURN
+"
+<div style='
+    width:100%;
+    height:100%;
+    box-sizing:border-box;
+    padding:16px 18px;
+    background:#FFFFFF;
+    border:1px solid #E7E1F0;
+    border-radius:12px;
+    font-family:Segoe UI, Arial, sans-serif;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    overflow:hidden;
+    transition:all 0.2s ease;
+'
+onmouseover='
+    this.style.boxShadow=""0 4px 14px rgba(109,40,217,0.14)"";
+    this.style.borderColor=""#D8CCF5"";
+'
+onmouseout='
+    this.style.boxShadow=""none"";
+    this.style.borderColor=""#E7E1F0"";
+'
+>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        letter-spacing:0.8px;
+        color:#111111;
+        margin-bottom:7px;
+        text-transform:uppercase;
+    '>
+        ANSWER RATE
+    </div>
+
+    <div style='
+        font-size:40px;
+        font-weight:700;
+        line-height:1;
+        color:#111111;
+        margin-bottom:9px;
+    '>
+        " & DisplayValue & "
+    </div>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        color:" & TrendColor & ";
+        display:flex;
+        align-items:center;
+        gap:5px;
+        white-space:nowrap;
+    '>
+
+        <span style='
+            font-size:24px;
+            font-weight:700;
+            line-height:1;
+        '>
+            " & TrendIcon & "
+        </span>
+
+        <span>
+            " & TrendText & "
+        </span>
+
+    </div>
+
+</div>
+"
+
+Avg ASA HTML Card =
+VAR CurrentValue =
+    [Avg ASA]
+
+VAR PreviousValue =
+    [Avg ASA Previous Month]
+
+VAR MoM =
+    [Avg ASA MoM %]
+
+VAR IsSingleMonth =
+    HASONEVALUE(DateTable[Year Month])
+
+VAR HasPreviousMonth =
+    NOT ISBLANK(PreviousValue)
+
+VAR DisplayValue =
+    IF(
+        ISBLANK(CurrentValue),
+        "—",
+        FORMAT(CurrentValue, "0.0") & "s"
+    )
+
+VAR TrendIcon =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "—",
+        MoM > 0, "↑",
+        MoM < 0, "↓",
+        "→"
+    )
+
+VAR TrendColor =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "#6D28D9",
+        NOT HasPreviousMonth, "#9CA3AF",
+
+        /* ASA increase = worse */
+        MoM > 0, "#DC2626",
+
+        /* ASA decrease = better */
+        MoM < 0, "#6D28D9",
+
+        "#9CA3AF"
+    )
+
+VAR TrendText =
+    SWITCH(
+        TRUE(),
+        NOT IsSingleMonth, "",
+        NOT HasPreviousMonth, "No prior month",
+        FORMAT(ABS(MoM), "0.0%") & " vs previous month"
+    )
+
+RETURN
+"
+<div style='
+    width:100%;
+    height:100%;
+    box-sizing:border-box;
+    padding:16px 18px;
+    background:#FFFFFF;
+    border:1px solid #E7E1F0;
+    border-radius:12px;
+    font-family:Segoe UI, Arial, sans-serif;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    overflow:hidden;
+    transition:all 0.2s ease;
+'
+onmouseover='
+    this.style.boxShadow=""0 4px 14px rgba(109,40,217,0.14)"";
+    this.style.borderColor=""#D8CCF5"";
+'
+onmouseout='
+    this.style.boxShadow=""none"";
+    this.style.borderColor=""#E7E1F0"";
+'
+>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        letter-spacing:0.8px;
+        color:#111111;
+        margin-bottom:7px;
+        text-transform:uppercase;
+    '>
+        AVG ASA
+    </div>
+
+    <div style='
+        font-size:40px;
+        font-weight:700;
+        line-height:1;
+        color:#111111;
+        margin-bottom:9px;
+    '>
+        " & DisplayValue & "
+    </div>
+
+    <div style='
+        font-size:20px;
+        font-weight:600;
+        color:" & TrendColor & ";
+        display:flex;
+        align-items:center;
+        gap:5px;
+        white-space:nowrap;
+    '>
+
+        <span style='
+            font-size:24px;
+            font-weight:700;
+            line-height:1;
+        '>
+            " & TrendIcon & "
+        </span>
+
+        <span>
+            " & TrendText & "
+        </span>
+
+    </div>
+
+</div>
+"
+
+// ============================================================================
+// Operational Rates
+// ============================================================================
+
+Abandonment Rate % =
+DIVIDE(
+    SUM(Call_Center_Data[calls_abandon]),
+    SUM(Call_Center_Data[calls_offered])
+)
+
+Abandonment Rate Previous Month =
+CALCULATE(
+    [Abandonment Rate %],
+    DATEADD(
+        DateTable[Date],
+        -1,
+        MONTH
+    )
+)
+
+Abandonment Rate MoM % =
+[Abandonment Rate %]
+    - [Abandonment Rate Previous Month]
