@@ -69,7 +69,19 @@ It transforms raw call center data into actionable insights that can support wor
 
 ## 🖼️ Dashboard Preview
 
-Screenshots of the dashboard will be added to this section.
+## 🖼️ Dashboard Preview
+
+### Project Overview
+
+![Project Overview](Project_Overview.png)
+
+### Performance Overview
+
+![Performance Overview](Performance_Overview.png)
+
+### Daily Analysis
+
+![Daily Analysis](Daily_Analysis.png)
 
 ## 👤 Author
 
